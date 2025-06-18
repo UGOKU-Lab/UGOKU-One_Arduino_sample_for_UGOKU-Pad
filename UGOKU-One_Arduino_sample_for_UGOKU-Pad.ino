@@ -22,8 +22,10 @@ uint8_t lastPrintedCh  = 255;
 uint8_t lastPrintedVal = 255;
 
 // Default “center” position for joystick
-uint8_t stick_x = 90;
-uint8_t stick_y = 90;
+uint8_t stick_x = 127;
+uint8_t stick_y = 127;
+float stick_x_duty = 0.0f;
+float stick_y_duty = 0.0f;
 uint8_t stick_4 = 127;
 uint8_t stick_5 = 127;
 
@@ -31,7 +33,7 @@ void setup() {
   Serial.begin(115200);               // Initialize the serial communication with a baud rate of 115200
 
   // Setup the BLE connection
-  controller.setup("UGOKU One");       // Set the BLE device name to "My ESP32"
+  controller.setup("UGOKU One 2wheel");       // Set the BLE device name to "My ESP32"
 
   // Set callback functions for when a device connects and disconnects
   controller.setOnConnectCallback(onDeviceConnect);   // Function called on device connection
@@ -132,11 +134,11 @@ void loop() {
       Serial.println("Incoming packet length != 19");
     }
 
-    MotorDriver_setSpeed(MD1, (stick_4 / 127.5f) - 1.0f);
-    MotorDriver_setSpeed(MD2, (stick_5 / 127.5f) - 1.0f);
+    stick_x_duty = ((float)stick_x / 127.5f) - 1.0f;
+    stick_y_duty = ((float)stick_y / 127.5f) - 1.0f;
 
-    servo1.write(stick_x);
-    servo2.write(stick_y);
+    MotorDriver_setSpeed(MD1, stick_x_duty + stick_y_duty);
+    MotorDriver_setSpeed(MD2, stick_y_duty - stick_x_duty);
 
     int psd = analogRead(PIN_ANALOG_READ);
     float dist = 1 / (float)psd * 30000;  // Conversion of analogue values to cm

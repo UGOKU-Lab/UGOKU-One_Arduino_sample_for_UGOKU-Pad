@@ -5,7 +5,7 @@
 
 // Minimum and maximum duty ratio (0.0 – 1.0)
 #define MIN_DUTY 0.2f
-#define MAX_DUTY 0.8f
+#define MAX_DUTY 1.0f
 
 // Motor channel selection
 enum MotorCh {
