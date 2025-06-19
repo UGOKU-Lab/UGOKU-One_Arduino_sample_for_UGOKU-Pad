@@ -52,10 +52,8 @@ void MotorDriver_setSpeed(MotorCh ch, float dutyRatio) {
 
     if (duty == 0) {
         // Brake mode: detach PWM, drive both pins HIGH
-        ledcDetach(MD1_IN1);
-        ledcDetach(MD1_IN2);
-        ledcDetach(MD2_IN1);
-        ledcDetach(MD2_IN2);
+        ledcWriteChannel(chFwd, 0);
+        ledcWriteChannel(chRev, 0);
         digitalWrite((ch == MD1 ? MD1_IN1 : MD2_IN1), HIGH);
         digitalWrite((ch == MD1 ? MD1_IN2 : MD2_IN2), HIGH);
     }

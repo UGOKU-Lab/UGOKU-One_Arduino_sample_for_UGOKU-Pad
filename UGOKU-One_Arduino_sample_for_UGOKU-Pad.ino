@@ -134,11 +134,19 @@ void loop() {
       Serial.println("Incoming packet length != 19");
     }
 
-    stick_x_duty = ((float)stick_x / 127.5f) - 1.0f;
-    stick_y_duty = ((float)stick_y / 127.5f) - 1.0f;
+    stick_x_duty = (stick_x / 127.5f) - 1.0f;
+    stick_y_duty = (stick_y / 127.5f) - 1.0f;
 
-    MotorDriver_setSpeed(MD1, stick_x_duty + stick_y_duty);
-    MotorDriver_setSpeed(MD2, stick_y_duty - stick_x_duty);
+    float m1 = stick_x_duty + stick_y_duty;
+    float m2 = stick_y_duty - stick_x_duty;
+
+    m1 = constrain(m1, -1.0f, 1.0f);
+    m2 = constrain(m2, -1.0f, 1.0f);
+
+    MotorDriver_setSpeed(MD1, (float)m1);
+    MotorDriver_setSpeed(MD2, (float)m2);
+    
+    Serial.println(m1);
 
     int psd = analogRead(PIN_ANALOG_READ);
     float dist = 1 / (float)psd * 30000;  // Conversion of analogue values to cm
