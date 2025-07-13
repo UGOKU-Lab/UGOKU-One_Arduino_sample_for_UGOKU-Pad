@@ -2,7 +2,7 @@
 ESP32をUGOKU Padで動かすArduinoのサンプルプログラムです。
 
 ### UGOKU Pad
-UGOKU Pad α版: https://play.google.com/store/apps/details?id=com.ugoku_lab.ugoku_console
+https://ugoku-lab.github.io/ugokupad.html
 
 Console内の「ESP32 Arduino Sample」を使用
 
