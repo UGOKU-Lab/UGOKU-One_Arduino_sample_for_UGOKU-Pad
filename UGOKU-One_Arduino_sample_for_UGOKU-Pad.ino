@@ -1,6 +1,8 @@
 #include "UGOKU_Pad_Controller.hpp"   // Include the custom controller header for BLE handling
 #include "ESP32Servo.h"               // Include the ESP32 Servo library
 #include "MotorDriver.h"
+#include <Wire.h>
+#include "IMUAngleEstimator.hpp"
 
 UGOKU_Pad_Controller controller;      // Instantiate the UGOKU Pad Controller object
 
@@ -33,6 +35,8 @@ uint8_t btn_6 = 0xFF;  // from ch6
 // Track previous values for "change only" actions (same挙動)
 uint8_t prev_btn_1 = 0xFF;
 uint8_t prev_btn_6 = 0xFF;
+
+IMUAngleEstimator imu;
 
 // Helper: read once and update target var if value is valid and changed
 static inline void updateFromChannel(uint8_t ch, uint8_t &var) {
@@ -69,6 +73,11 @@ void setup() {
   digitalWrite(PIN_LED_3, HIGH);
 
   Serial.println("Waiting for a device to connect...");  // Print waiting message
+
+  // Initialize IMU (always on)
+  if (!imu.begin()) {
+    Serial.println("BMI270 init failed");
+  }
 }
 
 // Function called when a BLE device connects
@@ -115,8 +124,6 @@ void loop() {
           digitalWrite(PIN_LED_1, (btn_1 == 1) ? LOW : HIGH);
           digitalWrite(PIN_LED_2, (btn_1 == 1) ? LOW : HIGH);
           digitalWrite(PIN_LED_3, (btn_1 == 1) ? LOW : HIGH);
-          // Serial.print("LED control (channel 1): ");
-          // Serial.println((btn_1 == 1) ? "OFF" : "ON");
         }
 
         // === ch6 outputs (changed only) ===
@@ -144,9 +151,20 @@ void loop() {
     int psd = analogRead(PIN_ANALOG_READ);
     float dist = 1 / (float)psd * 30000;  // Conversion of analogue values to cm
     int dist_int = (int)dist;
-    // Serial.print("dist_int = ");
-    // Serial.println(dist_int);
-    controller.write_data(7, dist_int);
+    controller.write_data(10, dist_int);
+
+    // IMU angles -> channels 20,21,22
+    if (imu.ok()) {
+      imu.update();
+      uint8_t ch[9];
+      uint8_t val[9];
+      for (int i = 0; i < 9; ++i) { ch[i] = 0xFF; val[i] = 0; }
+      // Map to 0..180 with flat=90 as requested
+      ch[0] = 20; val[0] = imu.rollByte180();
+      ch[1] = 21; val[1] = imu.pitchByte180();
+      ch[2] = 22; val[2] = imu.yawByte180();
+      controller.write_data(ch, val);
+    }
   }
 
   delay(50);  // Add a small delay to reduce the loop frequency
