@@ -20,6 +20,7 @@ bool isConnected = false;             // Boolean flag to track BLE connection st
 // Track last read channel/value to avoid flooding Serial output
 uint8_t lastPrintedCh  = 255;
 uint8_t lastPrintedVal = 255;
+uint8_t lastPrintedVal2 = 255;
 
 // Default “center” position for joystick
 uint8_t stick_x = 90;
@@ -43,12 +44,14 @@ void setup() {
   servo1.setPeriodHertz(50);          // Set the servo PWM frequency to 50Hz (typical for servos)
   servo2.setPeriodHertz(50);
 
+  pinMode(18, OUTPUT);
+  pinMode(26, OUTPUT);
   pinMode(PIN_LED_1, OUTPUT);
   pinMode(PIN_LED_2, OUTPUT);
   pinMode(PIN_LED_3, OUTPUT);
-  digitalWrite(PIN_LED_1, LOW);
-  digitalWrite(PIN_LED_2, LOW);
-  digitalWrite(PIN_LED_3, LOW);
+  digitalWrite(PIN_LED_1, HIGH);
+  digitalWrite(PIN_LED_2, HIGH);
+  digitalWrite(PIN_LED_3, HIGH);
 
   Serial.println("Waiting for a device to connect...");  // Print waiting message
 }
@@ -85,7 +88,7 @@ void loop() {
 
       // If there is at least one pair, find out which channels changed
       if (pairs > 0) {
-
+        
         uint8_t ch1Val = controller.getDataByChannel(1);
         if (ch1Val != 0xFF && ch1Val != lastPrintedVal) {
           lastPrintedVal = ch1Val;
@@ -96,6 +99,14 @@ void loop() {
           //Serial.print("LED control (channel 1): ");
           //Serial.println((ch1Val == 1) ? "OFF" : "ON");
         }
+
+        uint8_t ch6Val = controller.getDataByChannel(6);
+        if (ch6Val != 0xFF && ch6Val != lastPrintedVal2) {
+          lastPrintedVal2 = ch6Val;
+          digitalWrite(18, (ch6Val == 1) ? LOW : HIGH);
+          digitalWrite(26, (ch6Val == 1) ? LOW : HIGH);
+        }
+
 
         uint8_t ch2Val = controller.getDataByChannel(2);
         if (ch2Val != 0xFF && ch2Val != stick_x) {
@@ -143,7 +154,7 @@ void loop() {
     int dist_int = (int)dist;
     //Serial.print("dist_int = ");
     //Serial.println(dist_int);
-    controller.write_data(6,dist_int);
+    controller.write_data(7,dist_int);
   }
 
   delay(50);  // Add a small delay to reduce the loop frequency

@@ -3,23 +3,33 @@
 
 #include <Arduino.h>
 
-// Minimum and maximum duty ratio (0.0 – 1.0)
-#define MIN_DUTY 0.2f
-#define MAX_DUTY 0.8f
+// ===== User-tunable parameters =====
+#define MIN_DUTY 0.00f
+#define MAX_DUTY 1.00f
 
-// Motor channel selection
+// Motor selection
 enum MotorCh {
     MD1 = 1,
     MD2 = 2
 };
 
-// Initialize motor driver pins and PWM channels using new LEDC API
+// Stop behavior when duty = 0
+enum StopMode {
+    STOP_COAST = 0,  // L/L (Hi-Z, low power, coasting)
+    STOP_BRAKE = 1   // H/H (active brake, quick stop)
+};
+
+// Init PWM on pins/channels
 void MotorDriver_begin();
 
-// Set motor duty ratio in range -1.0 … +1.0
-//   dutyRatio <  0.0 : reverse
-//   dutyRatio =  0.0 : stop (brake)
-//   dutyRatio >  0.0 : forward
+// Set motor speed in range -1.0 .. +1.0
+//  >0: forward  (slow-decay PWM: drive <-> brake)
+//  <0: reverse  (slow-decay PWM: drive <-> brake)
+// ==0: stop     (obeys current StopMode)
 void MotorDriver_setSpeed(MotorCh ch, float dutyRatio);
+
+// Set/Get stop mode (takes effect whenever duty becomes 0)
+void MotorDriver_setStopMode(StopMode mode);
+StopMode MotorDriver_getStopMode();
 
 #endif // MOTOR_DRIVER_H
