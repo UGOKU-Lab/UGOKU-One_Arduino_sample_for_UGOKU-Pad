@@ -6,18 +6,27 @@
 
 UGOKU_Pad_Controller controller;      // Instantiate the UGOKU Pad Controller object
 
-// Define the pins
-#define PIN_SERVO_1 14                 // Pin number for the servo
-#define PIN_SERVO_2 27                 // Pin number for the servo
-#define PIN_ANALOG_READ 39             // Pin number for the analog input
-#define PIN_LED_1 2
-#define PIN_LED_2 4
-#define PIN_LED_3 23 // Pin number for the LED
+// ==== Pin map (updated) ====
+// Servos (2ch のまま運用)
+#define PIN_SERVO_1      14
+#define PIN_SERVO_2      27
 
-Servo servo1;                         // Create a Servo object
-Servo servo2;                         // Create a Servo object
+// Analog
+#define PIN_ANALOG_READ  33   // そのまま（ADC1_CH3 / 入力専用）
 
-bool isConnected = false;             // Boolean flag to track BLE connection status
+// LEDs (カソード=GPIO, LOWで点灯)
+#define PIN_LED_1         2   // strap注意: 起動直後は必ずHIGH初期化
+#define PIN_LED_2         4
+#define PIN_LED_3        13   // ← 23 から 13 に変更
+
+// btn_6でON/OFFする汎用出力（18/26 → 新マップに合わせて変更）
+#define PIN_OUT_1        23   // FET_SW（ゲート）想定
+#define PIN_OUT_2        25   // 予備GPIO（DAC1と排他運用に注意）
+
+Servo servo1;
+Servo servo2;
+
+bool isConnected = false;
 
 // (kept for structure parity; not used for prints now)
 uint8_t lastPrintedCh  = 255;
@@ -48,31 +57,31 @@ static inline void updateFromChannel(uint8_t ch, uint8_t &var) {
 }
 
 void setup() {
-  Serial.begin(115200);               // Initialize the serial communication with a baud rate of 115200
+  Serial.begin(115200);
 
-  // Setup the BLE connection
-  controller.setup("UGOKU One");      // Set the BLE device name
-
-  // Set callback functions for when a device connects and disconnects
-  controller.setOnConnectCallback(onDeviceConnect);      // Function called on device connection
-  controller.setOnDisconnectCallback(onDeviceDisconnect);  // Function called on device disconnection
+  controller.setup("UGOKU One V2");
+  controller.setOnConnectCallback(onDeviceConnect);
+  controller.setOnDisconnectCallback(onDeviceDisconnect);
 
   MotorDriver_begin();
 
   // Setup the servo
-  servo1.setPeriodHertz(50);          // Set the servo PWM frequency to 50Hz (typical for servos)
+  servo1.setPeriodHertz(50);
   servo2.setPeriodHertz(50);
 
-  pinMode(18, OUTPUT);
-  pinMode(26, OUTPUT);
+  // === GPIO init (updated) ===
+  pinMode(PIN_OUT_1, OUTPUT);    // 23
+  pinMode(PIN_OUT_2, OUTPUT);    // 25
+
   pinMode(PIN_LED_1, OUTPUT);
   pinMode(PIN_LED_2, OUTPUT);
   pinMode(PIN_LED_3, OUTPUT);
+  // strap対策: 上電直後は必ずHIGHで“消灯”に
   digitalWrite(PIN_LED_1, HIGH);
   digitalWrite(PIN_LED_2, HIGH);
   digitalWrite(PIN_LED_3, HIGH);
 
-  Serial.println("Waiting for a device to connect...");  // Print waiting message
+  Serial.println("Waiting for a device to connect...");
 
   // Initialize IMU (always on)
   if (!imu.begin()) {
@@ -80,45 +89,39 @@ void setup() {
   }
 }
 
-// Function called when a BLE device connects
 void onDeviceConnect() {
-  Serial.println("Device connected!");  // Print connection message
-  isConnected = true;                   // Set the connection flag to true
+  Serial.println("Device connected!");
+  isConnected = true;
 
-  // Attach the servo to the defined pin, with pulse range between 500 to 2500 microseconds
+  // Attach servos
   servo1.attach(PIN_SERVO_1, 500, 2500);
   servo2.attach(PIN_SERVO_2, 500, 2500);
 }
 
-// Function called when a BLE device disconnects
 void onDeviceDisconnect() {
-  Serial.println("Device disconnected!");  // Print disconnection message
-  isConnected = false;                     // Set the connection flag to false
+  Serial.println("Device disconnected!");
+  isConnected = false;
 
-  servo1.detach();                       // Detach the servos to stop controlling them
+  servo1.detach();
   servo2.detach();
 }
 
 void loop() {
-  // Only run if a device is connected via BLE
   if (isConnected) {
     uint8_t err = controller.read_data();
 
     if (err == no_err) {
       uint8_t pairs = controller.getLastPairsCount();
 
-      // If there is at least one pair, find out which channels changed
       if (pairs > 0) {
-        // Map channels -> variables in one place (includes ch1 & ch6)
         const uint8_t channels[] = { 1, 2, 3, 4, 5, 6 };
         uint8_t*      targets[]  = { &btn_1, &stick_x, &stick_y, &stick_4, &stick_5, &btn_6 };
 
-        // Update all mapped channels in one pass
         for (uint8_t i = 0; i < sizeof(channels)/sizeof(channels[0]); ++i) {
           updateFromChannel(channels[i], *targets[i]);
         }
 
-        // === ch1 LED control (changed only) ===
+        // ch1 LED control (changed only)
         if (btn_1 != 0xFF && btn_1 != prev_btn_1) {
           prev_btn_1 = btn_1;
           digitalWrite(PIN_LED_1, (btn_1 == 1) ? LOW : HIGH);
@@ -126,11 +129,11 @@ void loop() {
           digitalWrite(PIN_LED_3, (btn_1 == 1) ? LOW : HIGH);
         }
 
-        // === ch6 outputs (changed only) ===
+        // ch6 outputs (changed only)  ← 23/25 に変更
         if (btn_6 != 0xFF && btn_6 != prev_btn_6) {
           prev_btn_6 = btn_6;
-          digitalWrite(18, (btn_6 == 1) ? LOW : HIGH);
-          digitalWrite(26, (btn_6 == 1) ? LOW : HIGH);
+          digitalWrite(PIN_OUT_1, (btn_6 == 1) ? LOW : HIGH);
+          digitalWrite(PIN_OUT_2, (btn_6 == 1) ? LOW : HIGH);
         }
       }
     } else if (err == cs_err) {
@@ -139,9 +142,24 @@ void loop() {
       Serial.println("Incoming packet length != 19");
     }
 
-    // Motor (same formula/方向)
-    MotorDriver_setSpeed(MD1, (stick_4 / 127.5f) - 1.0f);
-    MotorDriver_setSpeed(MD2, (stick_5 / 127.5f) - 1.0f);
+    #if 0 // モーター独立駆動モード
+      MotorDriver_setSpeed(MD1, (stick_4 / 127.5f) - 1.0f);
+      MotorDriver_setSpeed(MD2, (stick_5 / 127.5f) - 1.0f);
+    #endif
+
+    #if 1 // モーター対向2輪1ジョイスティックモード
+      float stick_x_duty = (float)stick_4 / 127.5f - 1.0f;
+      float stick_y_duty = (float)stick_5 / 127.5f - 1.0f;
+
+      float m1 = stick_x_duty + stick_y_duty;
+      float m2 = stick_y_duty - stick_x_duty;
+
+      m1 = constrain(m1, -1.0f, 1.0f);
+      m2 = constrain(m2, -1.0f, 1.0f);
+
+      MotorDriver_setSpeed(MD1, m1);
+      MotorDriver_setSpeed(MD2, m2);
+    #endif
 
     // Servo (same)
     servo1.write(stick_x);
@@ -159,7 +177,6 @@ void loop() {
       uint8_t ch[9];
       uint8_t val[9];
       for (int i = 0; i < 9; ++i) { ch[i] = 0xFF; val[i] = 0; }
-      // Map to 0..180 with flat=90 as requested
       ch[0] = 20; val[0] = imu.rollByte180();
       ch[1] = 21; val[1] = imu.pitchByte180();
       ch[2] = 22; val[2] = imu.yawByte180();
@@ -167,5 +184,5 @@ void loop() {
     }
   }
 
-  delay(50);  // Add a small delay to reduce the loop frequency
+  delay(50);
 }
