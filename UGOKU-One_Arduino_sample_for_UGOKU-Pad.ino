@@ -23,6 +23,10 @@ UGOKU_Pad_Controller controller;      // Instantiate the UGOKU Pad Controller ob
 #define PIN_OUT_1        23   // FET_SW（ゲート）想定
 #define PIN_OUT_2        25   // 予備GPIO（DAC1と排他運用に注意）
 
+// DIPスイッチ
+#define PIN_DIP_SERVO    34   
+#define PIN_DIP_MOTOR    35
+
 Servo servo1;
 Servo servo2;
 
@@ -81,6 +85,10 @@ void setup() {
   digitalWrite(PIN_LED_2, HIGH);
   digitalWrite(PIN_LED_3, HIGH);
 
+  // DIPスイッチ入力設定（入力専用ピン）
+  pinMode(PIN_DIP_SERVO, INPUT);
+  pinMode(PIN_DIP_MOTOR, INPUT);
+
   Serial.println("Waiting for a device to connect...");
 
   // Initialize IMU (always on)
@@ -108,6 +116,10 @@ void onDeviceDisconnect() {
 
 void loop() {
   if (isConnected) {
+  // DIPスイッチ状態取得
+  const bool invertServo = (digitalRead(PIN_DIP_SERVO) == HIGH);
+  const bool invertMotor = (digitalRead(PIN_DIP_MOTOR) == HIGH);
+
     uint8_t err = controller.read_data();
 
     if (err == no_err) {
@@ -143,8 +155,11 @@ void loop() {
     }
 
     #if 1 // モーター独立駆動モード
-      MotorDriver_setSpeed(MD1, (stick_4 / 127.5f) - 1.0f);
-      MotorDriver_setSpeed(MD2, (stick_5 / 127.5f) - 1.0f);
+      float md1 = (stick_4 / 127.5f) - 1.0f;
+      float md2 = (stick_5 / 127.5f) - 1.0f;
+      if (invertMotor) { md1 = -md1; md2 = -md2; }
+      MotorDriver_setSpeed(MD1, md1);
+      MotorDriver_setSpeed(MD2, md2);
     #endif
 
     #if 0 // モーター対向2輪1ジョイスティックモード
@@ -161,9 +176,16 @@ void loop() {
       MotorDriver_setSpeed(MD2, m2);
     #endif
 
-    // Servo (same)
-    servo1.write(stick_2);
-    servo2.write(stick_3);
+    // Servo（DIPで反転）
+    uint8_t s2 = stick_2;
+    uint8_t s3 = stick_3;
+    if (invertServo) {
+      // 0-180度を中心(90)でミラー
+      s2 = (s2 <= 180) ? (uint8_t)(180 - s2) : s2;
+      s3 = (s3 <= 180) ? (uint8_t)(180 - s3) : s3;
+    }
+    servo1.write(s2);
+    servo2.write(s3);
 
     // PSD distance (same)
     int psd = analogRead(PIN_ANALOG_READ);
