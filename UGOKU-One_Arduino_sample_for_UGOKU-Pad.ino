@@ -32,8 +32,8 @@ bool isConnected = false;
 uint8_t lastPrintedCh  = 255;
 
 // Default “center” position for joystick
-uint8_t stick_x = 90;
-uint8_t stick_y = 90;
+uint8_t stick_2 = 90;
+uint8_t stick_3 = 90;
 uint8_t stick_4 = 127;
 uint8_t stick_5 = 127;
 
@@ -115,7 +115,7 @@ void loop() {
 
       if (pairs > 0) {
         const uint8_t channels[] = { 1, 2, 3, 4, 5, 6 };
-        uint8_t*      targets[]  = { &btn_1, &stick_x, &stick_y, &stick_4, &stick_5, &btn_6 };
+        uint8_t*      targets[]  = { &btn_1, &stick_2, &stick_3, &stick_4, &stick_5, &btn_6 };
 
         for (uint8_t i = 0; i < sizeof(channels)/sizeof(channels[0]); ++i) {
           updateFromChannel(channels[i], *targets[i]);
@@ -142,12 +142,12 @@ void loop() {
       Serial.println("Incoming packet length != 19");
     }
 
-    #if 0 // モーター独立駆動モード
+    #if 1 // モーター独立駆動モード
       MotorDriver_setSpeed(MD1, (stick_4 / 127.5f) - 1.0f);
       MotorDriver_setSpeed(MD2, (stick_5 / 127.5f) - 1.0f);
     #endif
 
-    #if 1 // モーター対向2輪1ジョイスティックモード
+    #if 0 // モーター対向2輪1ジョイスティックモード
       float stick_x_duty = (float)stick_4 / 127.5f - 1.0f;
       float stick_y_duty = (float)stick_5 / 127.5f - 1.0f;
 
@@ -162,8 +162,8 @@ void loop() {
     #endif
 
     // Servo (same)
-    servo1.write(stick_x);
-    servo2.write(stick_y);
+    servo1.write(stick_2);
+    servo2.write(stick_3);
 
     // PSD distance (same)
     int psd = analogRead(PIN_ANALOG_READ);
