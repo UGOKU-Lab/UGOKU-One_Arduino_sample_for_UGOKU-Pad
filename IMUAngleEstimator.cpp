@@ -1,10 +1,46 @@
 #include "IMUAngleEstimator.hpp"
 
 #include <Wire.h>
-#include <Arduino_BMI270_BMM150.h>
+#include "IMUProvider.hpp"
 #include <math.h>
 
 static inline float constrainf_(float x, float a, float b) { return x < a ? a : (x > b ? b : x); }
+
+// ===== Board orientation (adjust to match sensor mounting) =====
+// If roll/pitchが入れ替わって見える場合は XY をスワップ。
+// 必要なら軸の正負も切り替え。
+// UGOKU One V2 でICM42605がX/Y入替に見えるとのことなので既定=1。
+#ifndef BOARD_SWAP_XY
+#define BOARD_SWAP_XY 1
+#endif
+#ifndef BOARD_INVERT_X
+#define BOARD_INVERT_X 0
+#endif
+#ifndef BOARD_INVERT_Y
+#define BOARD_INVERT_Y 0
+#endif
+#ifndef BOARD_INVERT_Z
+#define BOARD_INVERT_Z 0
+#endif
+
+static void applyBoardOrientation(float &ax, float &ay, float &az,
+                                  float &gx, float &gy, float &gz) {
+  // swap X <-> Y if configured
+  #if BOARD_SWAP_XY
+    float t = ax; ax = ay; ay = t;
+    t = gx; gx = gy; gy = t;
+  #endif
+  // optional sign flips
+  #if BOARD_INVERT_X
+    ax = -ax; gx = -gx;
+  #endif
+  #if BOARD_INVERT_Y
+    ay = -ay; gy = -gy;
+  #endif
+  #if BOARD_INVERT_Z
+    az = -az; gz = -gz;
+  #endif
+}
 
 uint8_t IMUAngleEstimator::angleToByte(float deg) {
   while (deg > 180.0f) deg -= 360.0f;
@@ -28,35 +64,64 @@ uint8_t IMUAngleEstimator::mapDegToServoByte(float deg, float limitDeg) {
   return (uint8_t)(v + 0.5f);
 }
 
-uint8_t IMUAngleEstimator::rollByte180()  const { return mapDegToServoByte(_roll, 90.0f); }
-uint8_t IMUAngleEstimator::pitchByte180() const { return mapDegToServoByte(_pitch, 90.0f); }
-uint8_t IMUAngleEstimator::yawByte180()   const { return mapDegToServoByte(_yaw, 180.0f); }
+uint8_t IMUAngleEstimator::rollByte180()  const { return mapDegToServoByte(_froll, 90.0f); }
+uint8_t IMUAngleEstimator::pitchByte180() const { return mapDegToServoByte(_fpitch, 90.0f); }
+uint8_t IMUAngleEstimator::yawByte180()   const { return mapDegToServoByte(_fyaw, 180.0f); }
 
 bool IMUAngleEstimator::begin() {
-  Wire.begin();
-  delay(10);
-  _ok = IMU.begin();
+  _ok = IMU_init(Wire);
   if (!_ok) return false;
 
   // Seed angles with accel & mag if available
   float ax=0, ay=0, az=0;
   for (int i = 0; i < 20; ++i) {
-    if (IMU.accelerationAvailable()) {
-      IMU.readAcceleration(ax, ay, az);
+    if (IMU_accelAvailable()) {
+      IMU_readAccel(ax, ay, az);
       break;
     }
     delay(5);
   }
+  {
+    // Apply board orientation to accel before initial Euler seed
+    float gx=0, gy=0, gz=0; // not used for seed, but required by helper
+    applyBoardOrientation(ax, ay, az, gx, gy, gz);
+  }
   _roll  = atan2f(ay, az) * 180.0f / PI;
   _pitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * 180.0f / PI;
 
-  // Do not use magnetometer (BMM150)
+  // Yawはマグなし（重力のみ）だと相対値になります
   _yaw = 0.0f;
 
   // Initialize quaternion from initial Euler
   setQuaternionFromEuler(_roll, _pitch, _yaw);
   _exInt = _eyInt = _ezInt = 0.0f;
   _lastMs = millis();
+
+  // Initial filter outputs
+  _froll = _roll; _fpitch = _pitch; _fyaw = _yaw;
+
+  // Quick gyro bias calibration (assumes device is stationary at power-up)
+  // Collect ~200ms of samples
+  const uint32_t calibStart = millis();
+  int n = 0;
+  double sumx = 0, sumy = 0, sumz = 0;
+  while (millis() - calibStart < 200) {
+    float ax2, ay2, az2, gx2, gy2, gz2;
+    if (IMU_gyroAvailable()) {
+      IMU_readGyro(gx2, gy2, gz2);
+      // Orientation mapping to keep consistency
+      float ax_dummy=0, ay_dummy=0, az_dummy=0;
+      applyBoardOrientation(ax_dummy, ay_dummy, az_dummy, gx2, gy2, gz2);
+      sumx += gx2; sumy += gy2; sumz += gz2; ++n;
+    }
+    delay(5);
+  }
+  if (n > 10) {
+    _gxb = (float)(sumx / n);
+    _gyb = (float)(sumy / n);
+    _gzb = (float)(sumz / n);
+    _biasCalibrated = true;
+  }
   return true;
 }
 
@@ -66,22 +131,45 @@ void IMUAngleEstimator::update() {
   uint32_t nowMs = millis();
   float dt = (nowMs - _lastMs) / 1000.0f;
   if (dt < 0.001f) dt = 0.001f; // 1ms min to avoid zero dt
+  if (dt > kMaxDt) dt = kMaxDt; // clamp to avoid huge jumps after stalls
   _lastMs = nowMs;
 
-  // Read sensors with available() gating to match Arduino IMU API
+  // Read sensors once (synchronized acc+gyro)
   float ax = 0, ay = 0, az = 0, gx = 0, gy = 0, gz = 0;
   bool gotAcc = false, gotGyr = false;
-  if (IMU.accelerationAvailable()) { IMU.readAcceleration(ax, ay, az); gotAcc = true; }
-  if (IMU.gyroscopeAvailable())    { IMU.readGyroscope(gx, gy, gz);   gotGyr = true; }
+  int ret = IMU_readAccelGyro(ax, ay, az, gx, gy, gz);
+  if (ret >= 0) { gotAcc = true; gotGyr = true; }
+
+  // Apply board orientation mapping
+  applyBoardOrientation(ax, ay, az, gx, gy, gz);
 
   // Convert gyro to rad/s
+  if (gotGyr && _biasCalibrated) {
+    gx -= _gxb; gy -= _gyb; gz -= _gzb;
+  }
   float gx_r = (gotGyr ? gx : 0.0f) * (PI / 180.0f);
   float gy_r = (gotGyr ? gy : 0.0f) * (PI / 180.0f);
   float gz_r = (gotGyr ? gz : 0.0f) * (PI / 180.0f);
 
+  // Smooth accel for fusion and reject large spikes
+  if (!_accInit) { _sax = ax; _say = ay; _saz = az; _accInit = true; }
+  float dax = ax - _sax, day = ay - _say, daz = az - _saz;
+  if (fabsf(dax) < kAccSpikeThreshG) _sax += kAccLpfAlpha * dax;
+  if (fabsf(day) < kAccSpikeThreshG) _say += kAccLpfAlpha * day;
+  if (fabsf(daz) < kAccSpikeThreshG) _saz += kAccLpfAlpha * daz;
+
+  // Dynamic Kp: lower gains when gyro indicates near-static to reduce jitter
+  float gabs = fabsf(gx) + fabsf(gy) + fabsf(gz);
+  float kp_save = _kp;
+  if (gabs < 2.0f) { // ~<2 dps total
+    _kp = 1.0f;
+  }
+
   mahonyUpdate(gx_r, gy_r, gz_r,
-               ax, ay, az, gotAcc,
+               _sax, _say, _saz, gotAcc,
                dt);
+
+  _kp = kp_save;
 
   // Quaternion -> Euler (roll X, pitch Y, yaw Z)
   float q0 = _q0, q1 = _q1, q2 = _q2, q3 = _q3;
@@ -102,6 +190,27 @@ void IMUAngleEstimator::update() {
   _roll  = wrap180(_roll);
   _pitch = wrap180(_pitch);
   _yaw   = wrap180(_yaw);
+
+  // Smooth the outputs for UI stability (simple low-pass per angle)
+  _froll  = _froll  + kAngleLpfAlpha * (_roll  - _froll);
+  _fpitch = _fpitch + kAngleLpfAlpha * (_pitch - _fpitch);
+  _fyaw   = _fyaw   + kAngleLpfAlpha * (_yaw   - _fyaw);
+
+  // Near-static override: use accel-only tilt to lock roll/pitch when still
+  float anorm = sqrtf(_sax*_sax + _say*_say + _saz*_saz);
+  float gsum = fabsf(gx) + fabsf(gy) + fabsf(gz);
+  if (gsum < 1.0f && anorm > 0.9f && anorm < 1.1f) {
+    float r_acc  = atan2f(_say, _saz) * 180.0f / PI;
+    float p_acc  = atan2f(-_sax, sqrtf(_say * _say + _saz * _saz)) * 180.0f / PI;
+    r_acc = wrap180(r_acc); p_acc = wrap180(p_acc);
+    _froll  = _froll  + kAngleLpfAlpha * (r_acc - _froll);
+    _fpitch = _fpitch + kAngleLpfAlpha * (p_acc - _fpitch);
+  }
+
+  // NaN/Inf guard
+  if (!isfinite(_froll))  _froll = 0;
+  if (!isfinite(_fpitch)) _fpitch = 0;
+  if (!isfinite(_fyaw))   _fyaw = 0;
 }
 
 void IMUAngleEstimator::setQuaternionFromEuler(float rollDeg, float pitchDeg, float yawDeg) {
@@ -126,8 +235,8 @@ void IMUAngleEstimator::mahonyUpdate(float gx, float gy, float gz,
   // Normalize accelerometer
   if (hasAcc) {
     float norm = sqrtf(ax * ax + ay * ay + az * az);
-    // Acceptable accel magnitude range ~ [0.3g, 2.5g] to avoid dynamic spikes
-    if (norm > 0.3f && norm < 2.5f) {
+    // Acceptable accel magnitude range ~ [0.6g, 1.4g] to avoid dynamics and noise
+    if (norm > 0.6f && norm < 1.4f) {
       float inv = 1.0f / norm; ax *= inv; ay *= inv; az *= inv;
     } else {
       hasAcc = false;
@@ -144,6 +253,8 @@ void IMUAngleEstimator::mahonyUpdate(float gx, float gy, float gz,
     ex += (ay * vz - az * vy);
     ey += (az * vx - ax * vz);
     ez += (ax * vy - ay * vx);
+    // IMU variant: gravity alone cannot observe yaw. Don't correct yaw from accel.
+    ez = 0.0f;
   }
 
   if (_ki > 0.0f) {
@@ -169,8 +280,11 @@ void IMUAngleEstimator::mahonyUpdate(float gx, float gy, float gz,
 
   // Normalize quaternion
   float norm = sqrtf(q0*q0 + q1*q1 + q2*q2 + q3*q3);
-  if (norm > 1e-6f) {
+  if (norm > 1e-6f && isfinite(norm)) {
     float inv = 1.0f / norm;
     _q0 = q0 * inv; _q1 = q1 * inv; _q2 = q2 * inv; _q3 = q3 * inv;
+  } else {
+    // Recovery: reset quaternion from current smoothed Euler if something blew up
+    setQuaternionFromEuler(_froll, _fpitch, _fyaw);
   }
 }
