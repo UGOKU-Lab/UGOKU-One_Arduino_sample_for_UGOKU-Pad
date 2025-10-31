@@ -2,10 +2,10 @@
 #include <math.h>
 
 // ==== Pin mapping (UGOKU One assumed) ====
-static const int MD1_IN1 = 19;
-static const int MD1_IN2 = 18;
-static const int MD2_IN1 = 17;
-static const int MD2_IN2 = 16;
+static const int MD1_IN1 = 32;
+static const int MD1_IN2 = 33;
+static const int MD2_IN1 = 5;
+static const int MD2_IN2 = 13;
 
 // ==== PWM settings ====
 static const int PWM_FREQ = 20000; // Hz
