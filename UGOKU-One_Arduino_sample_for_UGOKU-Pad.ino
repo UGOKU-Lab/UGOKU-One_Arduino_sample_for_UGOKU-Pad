@@ -2,30 +2,32 @@
 #include "ESP32Servo.h"               // Include the ESP32 Servo library
 #include "MotorDriver.h"
 #include <Wire.h>
-#include "IMUAngleEstimator.hpp"
 
 UGOKU_Pad_Controller controller;      // Instantiate the UGOKU Pad Controller object
-
-// ==== Pin map (updated) ====
-// Servos (2ch のまま運用)
-#define PIN_SERVO_1      14
-#define PIN_SERVO_2      27
+// ==== Pin map ====
+// Servos
+#define SERVO_14 14
+#define SERVO_27 27
+#define SERVO_15 15
+#define SERVO_26 26
 
 // Analog
-#define PIN_ANALOG_READ  33   // そのまま（ADC1_CH3 / 入力専用）
+#define ADC_32 32
+#define ADC_33 33
+#define DAC_25 25
+#define DAC_26 26
 
-// LEDs (カソード=GPIO, LOWで点灯)
-#define PIN_LED_1         2   // strap注意: 起動直後は必ずHIGH初期化
-#define PIN_LED_2         4
-#define PIN_LED_3        13   // ← 23 から 13 に変更
+// LEDs(active LOW)
+#define LED_1 2
+#define LED_2 4
+#define LED_13 13
 
-// btn_6でON/OFFする汎用出力（18/26 → 新マップに合わせて変更）
-#define PIN_OUT_1        23   // FET_SW（ゲート）想定
-#define PIN_OUT_2        25   // 予備GPIO（DAC1と排他運用に注意）
+// FET
+#define FET_23 23
 
-// DIPスイッチ
-#define PIN_DIP_SERVO    34   
-#define PIN_DIP_MOTOR    35
+// DIP switch
+#define DIP_34 34   
+#define DIP_35 35
 
 Servo servo1;
 Servo servo2;
@@ -48,8 +50,6 @@ uint8_t btn_6 = 0xFF;  // from ch6
 // Track previous values for "change only" actions (same挙動)
 uint8_t prev_btn_1 = 0xFF;
 uint8_t prev_btn_6 = 0xFF;
-
-IMUAngleEstimator imu;
 
 // Helper: read once and update target var if value is valid and changed
 static inline void updateFromChannel(uint8_t ch, uint8_t &var) {
@@ -74,27 +74,24 @@ void setup() {
   servo2.setPeriodHertz(50);
 
   // === GPIO init (updated) ===
-  pinMode(PIN_OUT_1, OUTPUT);    // 23
-  pinMode(PIN_OUT_2, OUTPUT);    // 25
+  pinMode(FET_23, OUTPUT);  
+  pinMode(DAC_25, OUTPUT);   
+  pinMode(LED_1, OUTPUT);
+  pinMode(LED_2, OUTPUT);
+  pinMode(LED_13, OUTPUT);
+  pinMode(ADC_32, INPUT);
+  pinMode(ADC_33, INPUT);
 
-  pinMode(PIN_LED_1, OUTPUT);
-  pinMode(PIN_LED_2, OUTPUT);
-  pinMode(PIN_LED_3, OUTPUT);
   // strap対策: 上電直後は必ずHIGHで“消灯”に
-  digitalWrite(PIN_LED_1, HIGH);
-  digitalWrite(PIN_LED_2, HIGH);
-  digitalWrite(PIN_LED_3, HIGH);
+  digitalWrite(LED_1, HIGH);
+  digitalWrite(LED_2, HIGH);
+  digitalWrite(LED_13, HIGH);
 
   // DIPスイッチ入力設定（入力専用ピン）
-  pinMode(PIN_DIP_SERVO, INPUT);
-  pinMode(PIN_DIP_MOTOR, INPUT);
+  pinMode(DIP_34, INPUT);
+  pinMode(DIP_35, INPUT);
 
   Serial.println("Waiting for a device to connect...");
-
-  // Initialize IMU (always on)
-  if (!imu.begin()) {
-    Serial.println("BMI270 init failed");
-  }
 }
 
 void onDeviceConnect() {
@@ -102,8 +99,8 @@ void onDeviceConnect() {
   isConnected = true;
 
   // Attach servos
-  servo1.attach(PIN_SERVO_1, 500, 2500);
-  servo2.attach(PIN_SERVO_2, 500, 2500);
+  servo1.attach(SERVO_14, 500, 2500);
+  servo2.attach(SERVO_27, 500, 2500);
 }
 
 void onDeviceDisconnect() {
@@ -117,8 +114,8 @@ void onDeviceDisconnect() {
 void loop() {
   if (isConnected) {
   // DIPスイッチ状態取得
-  const bool invertServo = (digitalRead(PIN_DIP_SERVO) == HIGH);
-  const bool invertMotor = (digitalRead(PIN_DIP_MOTOR) == HIGH);
+  const bool invertServo = (digitalRead(DIP_34) == HIGH);
+  const bool invertMotor = (digitalRead(DIP_35) == HIGH);
 
     uint8_t err = controller.read_data();
 
@@ -136,16 +133,16 @@ void loop() {
         // ch1 LED control (changed only)
         if (btn_1 != 0xFF && btn_1 != prev_btn_1) {
           prev_btn_1 = btn_1;
-          digitalWrite(PIN_LED_1, (btn_1 == 1) ? LOW : HIGH);
-          digitalWrite(PIN_LED_2, (btn_1 == 1) ? LOW : HIGH);
-          digitalWrite(PIN_LED_3, (btn_1 == 1) ? LOW : HIGH);
+          digitalWrite(LED_1, (btn_1 == 1) ? LOW : HIGH);
+          digitalWrite(LED_2, (btn_1 == 1) ? LOW : HIGH);
+          digitalWrite(LED_13, (btn_1 == 1) ? LOW : HIGH);
         }
 
-        // ch6 outputs (changed only)  ← 23/25 に変更
+        // ch6 outputs (changed only) 
         if (btn_6 != 0xFF && btn_6 != prev_btn_6) {
           prev_btn_6 = btn_6;
-          digitalWrite(PIN_OUT_1, (btn_6 == 1) ? LOW : HIGH);
-          digitalWrite(PIN_OUT_2, (btn_6 == 1) ? LOW : HIGH);
+          digitalWrite(FET_23, (btn_6 == 1) ? LOW : HIGH);
+          digitalWrite(DAC_25, (btn_6 == 1) ? LOW : HIGH);
         }
       }
     } else if (err == cs_err) {
@@ -188,22 +185,10 @@ void loop() {
     servo2.write(s3);
 
     // PSD distance (same)
-    int psd = analogRead(PIN_ANALOG_READ);
+    int psd = analogRead(ADC_33);
     float dist = 1 / (float)psd * 30000;  // Conversion of analogue values to cm
     int dist_int = (int)dist;
     controller.write_data(10, dist_int);
-
-    // IMU angles -> channels 20,21,22
-    if (imu.ok()) {
-      imu.update();
-      uint8_t ch[9];
-      uint8_t val[9];
-      for (int i = 0; i < 9; ++i) { ch[i] = 0xFF; val[i] = 0; }
-      ch[0] = 20; val[0] = imu.rollByte180();
-      ch[1] = 21; val[1] = imu.pitchByte180();
-      ch[2] = 22; val[2] = imu.yawByte180();
-      controller.write_data(ch, val);
-    }
   }
 
   delay(50);
