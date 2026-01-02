@@ -110,3 +110,8 @@ void MotorDriver_setSpeed(MotorCh ch, float dutyRatio) {
         ledcWriteChannel(chIN1, 255 - duty); // IN1 PWM: LOW=drive, HIGH=brake
     }
 }
+
+void Motor(float dutyMD1, float dutyMD2) {
+    MotorDriver_setSpeed(MD1, dutyMD1);
+    MotorDriver_setSpeed(MD2, dutyMD2);
+}

@@ -28,6 +28,9 @@ void MotorDriver_begin();
 // ==0: stop     (obeys current StopMode)
 void MotorDriver_setSpeed(MotorCh ch, float dutyRatio);
 
+// Set both motors speed in one call
+void Motor(float dutyMD1, float dutyMD2);
+
 // Set/Get stop mode (takes effect whenever duty becomes 0)
 void MotorDriver_setStopMode(StopMode mode);
 StopMode MotorDriver_getStopMode();

@@ -1,6 +1,6 @@
-#include "UGOKU-Pad_Controller.hpp"   // Include the custom controller header for BLE handling
-#include "ESP32Servo.h"               // Include the ESP32 Servo library
+#include "UGOKU-Pad_Controller.h"   
 #include "MotorDriver.h"
+#include "ESP32Servo.h"               
 #include "Arduino_BMI270_BMM150.h"
 #include <Wire.h>
 
@@ -58,8 +58,8 @@ void loop() {
   if (!UGOKUPad.update()) return;
 
   // DIPスイッチ状態取得
-  const bool invertServo = (digitalRead(DIP_34) == HIGH);
-  const bool invertMotor = (digitalRead(DIP_35) == HIGH);
+  const bool invertServo = (digitalRead(34) == HIGH);
+  const bool invertMotor = (digitalRead(35) == HIGH);
 
   // LED制御
   digitalWrite(2,!UGOKUPad.read(1));
@@ -73,8 +73,7 @@ void loop() {
     float md1 = (UGOKUPad.read(10) / 127.5f) - 1.0f;
     float md2 = (UGOKUPad.read(11) / 127.5f) - 1.0f;
     if (invertMotor) { md1 = -md1; md2 = -md2; }
-    MotorDriver_setSpeed(MD1, md1);
-    MotorDriver_setSpeed(MD2, md2);
+    Motor(md1, md2);
   #endif
 
   #if 0 // モーター対向2輪1ジョイスティックモード
@@ -87,13 +86,12 @@ void loop() {
     m1 = constrain(m1, -1.0f, 1.0f);
     m2 = constrain(m2, -1.0f, 1.0f);
 
-    MotorDriver_setSpeed(MD1, m1);
-    MotorDriver_setSpeed(MD2, m2);
+    Motor(m1, m2);
   #endif
 
   // Servo（DIPで反転）
-  uint8_t s2 = stick_2;
-  uint8_t s3 = stick_3;
+  uint8_t s2 = UGOKUPad.read(12);
+  uint8_t s3 = UGOKUPad.read(13);
   if (invertServo) {
     // 0-180度を中心(90)でミラー
     s2 = (s2 <= 180) ? (uint8_t)(180 - s2) : s2;
@@ -114,7 +112,7 @@ void loop() {
       Serial.print('\t');
       Serial.println(z);
     }
-  }
-
-    delay(50);
+  
+  delay(50);
 }
+  

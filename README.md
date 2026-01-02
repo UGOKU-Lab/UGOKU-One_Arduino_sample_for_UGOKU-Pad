@@ -1,5 +1,5 @@
-# ESP32_Arduino_for_UGOKU_Pad
-ESP32 を UGOKU Pad から操作するための Arduino サンプルです。現在のコード構成・挙動に合わせて README を更新しています。
+# UGOKU-One Arduino Sample for UGOKU Pad
+UGOKU One を UGOKU Pad から操作するための Arduino サンプルです。現在のコード構成・挙動に合わせて README を更新しています。
 
 ## このサンプルでできること
 - BLE 接続（UGOKU Pad の Console「ESP32 Arduino Sample」を使用）
