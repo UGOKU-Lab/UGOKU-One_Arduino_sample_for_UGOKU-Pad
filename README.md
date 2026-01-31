@@ -12,14 +12,16 @@ UGOKU One を UGOKU Pad から操作するための Arduino サンプルです�
 
 ## 使用方法
 #### Arduino IDE での準備
-- BOARD MANAGER で ESP32 を検索して **Arduino ESP32 Boards** と **esp32** をインストールする  
-<img src="https://github.com/user-attachments/assets/34e671e7-9068-47e4-8431-86b137ea8c13" width="350">
+- BOARD MANAGER で ESP32 を検索して **esp32** をインストールする
 
-　
-- LIBRARY MANAGER で **ESP32Servo** を検索してインストールする  
-<img src="https://github.com/user-attachments/assets/cae88e9d-53ed-4a1c-bf38-bd7de3d8b462" width="350">  
+<img src="https://github.com/user-attachments/assets/6dc9cd81-1b13-4725-8cf1-1ccd49c58326" width="350" />
 
-　
+- LIBRARY MANAGER で **ESP32Servo** と **UGOKU-Pad** を検索してインストールする  
+
+<img src="https://github.com/user-attachments/assets/cae88e9d-53ed-4a1c-bf38-bd7de3d8b462" width="350" />
+<br>
+<img src="https://github.com/user-attachments/assets/34681fbb-2231-4b4c-8324-54dc8b631685" width="400" />
+
 - Select Other Board and Port で **ESP32 Dev Module** を検索して選択する 
 <img src="https://github.com/user-attachments/assets/670f19c9-2996-4bbd-9af5-0fa0ecb96540" width="350">  
 
