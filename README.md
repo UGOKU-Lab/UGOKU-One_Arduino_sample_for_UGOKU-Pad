@@ -1,5 +1,5 @@
 # UGOKU-One Arduino Sample for UGOKU Pad
-UGOKU One を UGOKU Pad から操作するための Arduino サンプルです。現在のコード構成・挙動に合わせて README を更新しています。
+UGOKU One を UGOKU Pad から操作するための Arduino サンプルです。
 
 ## このサンプルでできること
 - BLE 接続
@@ -8,12 +8,13 @@ UGOKU One を UGOKU Pad から操作するための Arduino サンプルです�
 - LED の ON/OFF
 - 加速度の計測
 
-<img src="https://github.com/user-attachments/assets/b2da444f-e0e3-46c4-aa92-2031e2f38083" width="600">
+<img src="https://github.com/user-attachments/assets/f735c3af-c777-4a1e-8846-5607c272b291" width="600">
+
 
 ## 使用方法
 #### Arduino IDE での準備
 - BOARD MANAGER で ESP32 を検索して **Arduino ESP32 Boards** と **esp32** をインストールする  
-<img src="https://github.com/user-attachments/assets/34e671e7-9068-47e4-8431-86b137ea8c13" width="350">
+<img src="https://github.com/user-attachments/assets/1f6a2303-91af-4abe-82d2-41801bee747c" width="350">
 
 　
 - LIBRARY MANAGER で **ESP32Servo** を検索してインストールする  
@@ -31,7 +32,7 @@ UGOKU Padをインストール
 
 参考: https://ugoku-lab.github.io/ugokupad.html
 
-## ピン配置（現在のスケッチに準拠）
+## ピン配置
 | 機能 | ピン | 備考 |
 | --- | --- | --- |
 | サーボ1 | 14 | 50Hz, attach(500–2500μs) |
@@ -46,8 +47,5 @@ UGOKU Padをインストール
 - ch14/27: サーボ1/2 角度 0..180（DIPで反転可能）
 - ch17/19: モーター MD1/2（スティック中央=停止。0..255を-1..+1にスケーリング）
 - ch100/101/102: 加速度の計測値
-
-## ライセンス
-このリポジトリのライセンスは `LICENSE` を参照してください。
 
 
