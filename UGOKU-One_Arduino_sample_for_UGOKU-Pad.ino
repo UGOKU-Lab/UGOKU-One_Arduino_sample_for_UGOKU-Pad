@@ -15,6 +15,10 @@ void setup() {
   UGOKUPad.begin("UGOKU One V2");
   UGOKUPad.setConnectionHandlers(onConnect, onDisconnect);
 
+  // モーターの入力値を初期化
+  UGOKUPad.write(19, 127);
+  UGOKUPad.write(17, 127);
+
   MotorDriver_begin();
 
   pinMode(2, OUTPUT);
