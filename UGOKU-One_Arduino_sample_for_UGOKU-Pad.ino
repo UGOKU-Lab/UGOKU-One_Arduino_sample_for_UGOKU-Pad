@@ -97,9 +97,8 @@ void loop() {
   uint8_t s2 = UGOKUPad.read(14);
   uint8_t s3 = UGOKUPad.read(27);
   if (invertServo) {
-    // 0-180度を中心(90)でミラー
-    s2 = (s2 <= 180) ? (uint8_t)(180 - s2) : s2;
-    s3 = (s3 <= 180) ? (uint8_t)(180 - s3) : s3;
+    s2 = (uint8_t)(180 - s2);
+    s3 = (uint8_t)(180 - s3);
   }
   servo1.write(s2);
   servo2.write(s3);
