@@ -105,15 +105,15 @@ void loop() {
   servo2.write(s3);
 
 
-    float x, y, z;
+  float x, y, z;
 
-    if (IMU.accelerationAvailable()) {
-      IMU.readAcceleration(x, y, z);
+  if (IMU.accelerationAvailable()) {
+    IMU.readAcceleration(x, y, z);
 
-      UGOKUPad.write(100, fabsf(x * 100));
-      UGOKUPad.write(101, fabsf(y * 100));
-      UGOKUPad.write(102, fabsf(z * 100));
-    }
+    UGOKUPad.write(100, fabsf(x * 100));
+    UGOKUPad.write(101, fabsf(y * 100));
+    UGOKUPad.write(102, fabsf(z * 100));
+  }
   
   delay(50);
 }
