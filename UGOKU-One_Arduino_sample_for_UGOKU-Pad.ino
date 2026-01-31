@@ -106,11 +106,9 @@ void loop() {
     if (IMU.accelerationAvailable()) {
       IMU.readAcceleration(x, y, z);
 
-      Serial.print(x);
-      Serial.print('\t');
-      Serial.print(y);
-      Serial.print('\t');
-      Serial.println(z);
+      UGOKUPad.write(100, fabsf(x * 100));
+      UGOKUPad.write(101, fabsf(y * 100));
+      UGOKUPad.write(102, fabsf(z * 100));
     }
   
   delay(50);
