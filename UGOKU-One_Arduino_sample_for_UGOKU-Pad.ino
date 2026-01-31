@@ -62,23 +62,23 @@ void loop() {
   const bool invertMotor = (digitalRead(35) == HIGH);
 
   // LED制御
-  digitalWrite(2,!UGOKUPad.read(1));
-  digitalWrite(4,!UGOKUPad.read(2));
-  digitalWrite(13,!UGOKUPad.read(3));
+  digitalWrite(2,!UGOKUPad.read(2));
+  digitalWrite(4,!UGOKUPad.read(4));
+  digitalWrite(13,!UGOKUPad.read(13));
 
   // FET制御
-  digitalWrite(23,UGOKUPad.read(4));
+  digitalWrite(23,UGOKUPad.read(23));
 
   #if 1 // モーター独立駆動モード
-    float md1 = (UGOKUPad.read(10) / 127.5f) - 1.0f;
-    float md2 = (UGOKUPad.read(11) / 127.5f) - 1.0f;
+    float md1 = (UGOKUPad.read(19) / 127.5f) - 1.0f;
+    float md2 = (UGOKUPad.read(17) / 127.5f) - 1.0f;
     if (invertMotor) { md1 = -md1; md2 = -md2; }
     Motor(md1, md2);
   #endif
 
   #if 0 // モーター対向2輪1ジョイスティックモード
-    float stick_x_duty = (float)UGOKUPad.read(10) / 127.5f - 1.0f;
-    float stick_y_duty = (float)UGOKUPad.read(11) / 127.5f - 1.0f;
+    float stick_x_duty = (float)UGOKUPad.read(19) / 127.5f - 1.0f;
+    float stick_y_duty = (float)UGOKUPad.read(17) / 127.5f - 1.0f;
 
     float m1 = stick_x_duty + stick_y_duty;
     float m2 = stick_y_duty - stick_x_duty;
@@ -90,8 +90,8 @@ void loop() {
   #endif
 
   // Servo（DIPで反転）
-  uint8_t s2 = UGOKUPad.read(12);
-  uint8_t s3 = UGOKUPad.read(13);
+  uint8_t s2 = UGOKUPad.read(14);
+  uint8_t s3 = UGOKUPad.read(27);
   if (invertServo) {
     // 0-180度を中心(90)でミラー
     s2 = (s2 <= 180) ? (uint8_t)(180 - s2) : s2;
