@@ -74,15 +74,15 @@ void loop() {
   digitalWrite(23,UGOKUPad.read(23));
 
   #if 1 // モーター独立駆動モード
-    float md1 = (UGOKUPad.read(19) / 127.5f) - 1.0f;
-    float md2 = (UGOKUPad.read(17) / 127.5f) - 1.0f;
+    float md1 = (UGOKUPad.read(19) / 127.0f) - 1.0f;
+    float md2 = (UGOKUPad.read(17) / 127.0f) - 1.0f;
     if (invertMotor) { md1 = -md1; md2 = -md2; }
     Motor(md1, md2);
   #endif
 
   #if 0 // モーター対向2輪1ジョイスティックモード
-    float stick_x_duty = (float)UGOKUPad.read(19) / 127.5f - 1.0f;
-    float stick_y_duty = (float)UGOKUPad.read(17) / 127.5f - 1.0f;
+    float stick_x_duty = (float)UGOKUPad.read(19) / 127.0f - 1.0f;
+    float stick_y_duty = (float)UGOKUPad.read(17) / 127.0f - 1.0f;
 
     float m1 = stick_x_duty + stick_y_duty;
     float m2 = stick_y_duty - stick_x_duty;
