@@ -26,7 +26,7 @@ void setup() {
   pinMode(13, OUTPUT);
   pinMode(23, OUTPUT);  
 
-  //LED off
+  // LED をオフ
   digitalWrite(2, HIGH);
   digitalWrite(4, HIGH);
   digitalWrite(13, HIGH);
@@ -55,10 +55,10 @@ void onDisconnect() {
 }
 
 void loop() {
-  //Disconnected: stop outputs
+  // 接続確認
   if (!isConnected) return;
 
-  //Update UGOKU Pad data
+  // UGOKU Pad のデータを更新
   if (!UGOKUPad.update()) return;
 
   // DIPスイッチ状態取得
@@ -73,14 +73,14 @@ void loop() {
   // FET制御
   digitalWrite(23,UGOKUPad.read(23));
 
-  #if 1 // モーター独立駆動モード
+  #if 0 // モーター独立駆動モード
     float md1 = (UGOKUPad.read(19) / 127.0f) - 1.0f;
     float md2 = (UGOKUPad.read(17) / 127.0f) - 1.0f;
     if (invertMotor) { md1 = -md1; md2 = -md2; }
     Motor(md1, md2);
   #endif
 
-  #if 0 // モーター対向2輪1ジョイスティックモード
+  #if 1 // モーター対向2輪1ジョイスティックモード
     float stick_x_duty = (float)UGOKUPad.read(19) / 127.0f - 1.0f;
     float stick_y_duty = (float)UGOKUPad.read(17) / 127.0f - 1.0f;
 
