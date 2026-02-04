@@ -25,6 +25,8 @@ void setup() {
   pinMode(4, OUTPUT);
   pinMode(13, OUTPUT);
   pinMode(23, OUTPUT);
+  pinMode(34, INPUT);
+  pinMode(35, INPUT);
 
   // LED をオフ
   digitalWrite(2, HIGH);
